@@ -23,6 +23,11 @@ STAT_PARAMS = [
     ('b/+.txt', 13, 0),
     ('b/c c.txt', 13, 0),
     (u'b/\xfc.txt', 13, 0),
+    ('c/$.txt', 13, 0),
+    ('c/=.txt', 13, 0),
+    ('c/p().txt', 13, 0),
+    ('d/utf8.txt', 14, 0),
+
 ]
 
 CONTENT_PARAMS = [
@@ -31,6 +36,9 @@ CONTENT_PARAMS = [
     ('b/_.txt', b'Hello world!\n'),
     ('b/ü.txt', b'Hello world!\n'),
     ('b/c c.txt', b'Hello world!\n'),
+    ('c/$.txt', b'Hello world!\n'),
+    ('c/=.txt', b'Hello world!\n'),
+    ('d/utf8.txt', '¯\_(ツ)_/¯\n'.encode('utf-8')),
 ]
 
 
@@ -86,7 +94,21 @@ def test_cached_VSIFStatL(init, cached, path, size, is_directory):
 
 @pytest.mark.parametrize('path,expected', [
     ('a', ['a.txt']),
-    ('', ['a/', 'a/a.txt', 'b/', 'b/+.txt', 'b/_.txt', 'b/c c.txt', u'b/\xfc.txt']),
+    ('', [
+        'a/',
+        'a/a.txt',
+        'b/',
+        'b/+.txt',
+        'b/_.txt',
+        'b/c c.txt',
+        u'b/\xfc.txt',
+        'c/',
+        'c/$.txt',
+        'c/=.txt',
+        'c/p().txt',
+        'd/',
+        'd/utf8.txt',
+    ]),
 ])
 def test_ReadDirRecursive(init, uncached, path, expected):
     vsi_path = join(ROOT, path)
