@@ -22,11 +22,12 @@ STAT_PARAMS = [
     ('b/_.txt', 13, 0),
     ('b/+.txt', 13, 0),
     ('b/c c.txt', 13, 0),
-    (u'b/\xfc.txt', 13, 0),
+    (u'b/ü.txt', 13, 0),
     ('c/$.txt', 13, 0),
     ('c/=.txt', 13, 0),
     ('c/p().txt', 13, 0),
     ('d/utf8.txt', 14, 0),
+    ('z.zip', 279, 0),
 
 ]
 
@@ -70,7 +71,7 @@ def cached():
 @pytest.mark.parametrize('path,size,is_directory', STAT_PARAMS)
 def test_uncached_VSIFStatL(init, uncached, path, size, is_directory):
     """Run VSIFStatL on paths that haven't been cached."""
-    vsi_path = join(ROOT, path)
+    vsi_path = join(ROOT, path).encode('utf-8')
     print ">>> gdal.VSIStatL({})".format(repr(vsi_path))
     stat = gdal.VSIStatL(vsi_path)
     print stat
@@ -82,7 +83,7 @@ def test_uncached_VSIFStatL(init, uncached, path, size, is_directory):
 @pytest.mark.parametrize('path,size,is_directory', STAT_PARAMS)
 def test_cached_VSIFStatL(init, cached, path, size, is_directory):
     """Run VSIFStatL on paths that are already cached by ReadDirRecursive."""
-    vsi_path = join(ROOT, path)
+    vsi_path = join(ROOT, path).encode('utf-8')
     print ">>> gdal.VSIStatL({})".format(repr(vsi_path))
     stat = gdal.VSIStatL(vsi_path)
     print stat
@@ -108,6 +109,9 @@ def test_cached_VSIFStatL(init, cached, path, size, is_directory):
         'c/p().txt',
         'd/',
         'd/utf8.txt',
+        'z.zip',
+        'z/',
+        'z/a.txt',
     ]),
 ])
 def test_ReadDirRecursive(init, uncached, path, expected):
@@ -135,3 +139,32 @@ def test_file_read(init, uncached, path, expected_contents):
     closed_result = gdal.VSIFCloseL(file_handle)
     assert contents == expected_contents
     assert closed_result == 0
+
+
+def test_zip_slash(init, uncached):
+    vsi_path = '/vsizip/' + ROOT + '/z.zip'
+    print ">>> gdal.VSIStatL({})".format(repr(vsi_path))
+    # This pretends to be the file INSIDE z.zip
+    stat = gdal.VSIStatL(vsi_path)
+    assert stat.size == 13
+    assert stat.mtime is not None
+    assert stat.IsDirectory() == 0
+
+
+def test_zip_noslash(init, uncached):
+    vsi_path = '/vsizip' + ROOT + '/z.zip'
+    print ">>> gdal.VSIStatL({})".format(repr(vsi_path))
+    # This pretends to be the file INSIDE z.zip
+    stat = gdal.VSIStatL(vsi_path)
+    assert stat.size == 13
+    assert stat.mtime is not None
+    assert stat.IsDirectory() == 0
+
+
+def test_zip_ReadDirRecursive(init, uncached):
+    vsi_path = '/vsizip' + ROOT + '/z.zip'
+    print '>>> gdal.ReadDirRecursive({!r})'.format(vsi_path)
+    listing = gdal.ReadDirRecursive(vsi_path)
+    print repr(listing)
+    listing.sort()
+    assert listing == ['z/', 'z/a.txt']
