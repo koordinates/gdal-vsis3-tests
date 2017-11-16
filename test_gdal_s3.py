@@ -28,7 +28,7 @@ STAT_PARAMS = [
     ('c/p().txt', 13, 0),
     ('d/utf8.txt', 14, 0),
     ('z.zip', 279, 0),
-
+    (u'macrons/\u0101\u0113\u012b\u014d\u016b/\u0101\u0113\u012b\u014d\u016b.txt', 13, 0),
 ]
 
 CONTENT_PARAMS = [
@@ -39,6 +39,7 @@ CONTENT_PARAMS = [
     ('b/c c.txt', b'Hello world!\n'),
     ('c/$.txt', b'Hello world!\n'),
     ('c/=.txt', b'Hello world!\n'),
+    (u'macrons/\u0101\u0113\u012b\u014d\u016b/\u0101\u0113\u012b\u014d\u016b.txt', b'Hello world!\n'),
     ('d/utf8.txt', '¯\_(ツ)_/¯\n'.encode('utf-8')),
 ]
 
@@ -96,6 +97,7 @@ def test_cached_VSIFStatL(init, cached, path, size, is_directory):
 @pytest.mark.parametrize('path,expected', [
     ('a', ['a.txt']),
     ('', [
+        '2z.zip',
         'a/',
         'a/a.txt',
         'b/',
@@ -109,12 +111,27 @@ def test_cached_VSIFStatL(init, cached, path, size, is_directory):
         'c/p().txt',
         'd/',
         'd/utf8.txt',
+        'macrons/',
+        u'macrons/a\u0304e\u0304i\u0304o\u0304u\u0304.zip',
+        u'macrons/\u0101\u0113\u012b\u014d\u016b/',
+        u'macrons/\u0101\u0113\u012b\u014d\u016b/\u0101\u0113\u012b\u014d\u016b.txt',
         'z.zip',
         'z/',
         'z/a.txt',
     ]),
 ])
 def test_ReadDirRecursive(init, uncached, path, expected):
+    vsi_path = join(ROOT, path)
+    listing = gdal.ReadDirRecursive(vsi_path)
+    listing.sort()
+    print listing
+    assert listing == expected
+
+
+@pytest.mark.parametrize('path,expected', [
+    ('a', ['a.txt']),
+])
+def test_readdir(init, uncached, path, expected):
     vsi_path = join(ROOT, path)
     listing = gdal.ReadDirRecursive(vsi_path)
     listing.sort()
@@ -168,3 +185,32 @@ def test_zip_ReadDirRecursive(init, uncached):
     print repr(listing)
     listing.sort()
     assert listing == ['z/', 'z/a.txt']
+
+
+def test_two_zip_ReadDirRecursive(init, uncached):
+    vsi_path = '/vsizip' + ROOT + '/2z.zip'
+    print ">>> gdal.VSIStatL({})".format(repr(vsi_path))
+    # This pretends to be the file INSIDE z.zip
+    stat = gdal.VSIStatL(vsi_path)
+    assert stat is not None
+    assert stat.IsDirectory() == 1
+    print '>>> gdal.ReadDirRecursive({!r})'.format(vsi_path)
+    listing = gdal.ReadDirRecursive(vsi_path)
+    print repr(listing)
+    listing.sort()
+    assert listing == ['2z/', '2z/one.txt', '2z/two.txt']
+
+
+@pytest.mark.xfail
+def test_zip_macrons(init, uncached):
+    vsi_path = '/vsizip' + ROOT + u'/macrons/a\u0304e\u0304i\u0304o\u0304u\u0304.zip'
+    print ">>> gdal.VSIStatL({})".format(repr(vsi_path))
+    # This pretends to be the file INSIDE z.zip
+    stat = gdal.VSIStatL(vsi_path)
+    assert stat is not None
+    assert stat.IsDirectory() == 0
+    assert stat.mtime is not None
+    assert stat.size == 13
+    listing = gdal.ReadDir(vsi_path)
+    listing.sort()
+    assert listing == []
